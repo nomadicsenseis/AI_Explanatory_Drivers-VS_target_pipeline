@@ -88,6 +88,7 @@ class Arguments(utils.AbstractArguments):
         parser.add_argument("--s3_path_write", type=str)  # S3 path to write data
         parser.add_argument("--str_execution_date", type=str)  # Execution date
         parser.add_argument("--is_last_date", type=str, default="1")  # Indicator for the last date
+        parser.add_argument("--quarter", type=str)
 
         # Parse the arguments and store them in the 'args' attribute
         self.args = parser.parse_args()
@@ -109,6 +110,7 @@ if __name__ == "__main__":
     S3_PATH_WRITE = args.s3_path_write
     STR_EXECUTION_DATE = args.str_execution_date
     IS_LAST_DATE = args.is_last_date
+    quarter = args.quarter
 
     # Parse date from STR_EXECUTION_DATE
     date = STR_EXECUTION_DATE.split("/")[-1].split("=")[-1].replace("-", "")
@@ -148,11 +150,36 @@ if __name__ == "__main__":
 
     # Load the data to predict
     df_predict = read_csv(f"s3://{S3_BUCKET}/{read_path}/data_for_historic_prediction.csv")
+    
+    # Asegurarse de que 'date_flight_local' esté en formato datetime
+    df_predict['date_flight_local'] = pd.to_datetime(df_predict['date_flight_local'])
+
+    # Obtener el año para cada fecha (necesario para construir rangos de fechas)
+    df_predict = df_predict[df_predict['date_flight_local'].dt.year >= 2023]
+    
+    df_predict = df_predict[df_predict['date_flight_local'].dt.day == 1]
+
+    def filter_data_by_quarter(df, quarter):
+        # Definir los rangos de fechas para cada trimestre
+        quarters = {
+            "q1": (1, 3),
+            "q2": (4, 6),
+            "q3": (7, 9),
+            "q4": (10, 12)
+        }
+
+        # Obtener el rango de meses para el trimestre especificado
+        start_month, end_month = quarters[quarter]
+
+        # Filtrar el DataFrame por el rango de fechas del trimestre
+        df_filtered = df[df['date_flight_local'].dt.month.between(start_month, end_month)]
+
+        return df_filtered
+    
+    df_predict = filter_data_by_quarter(df_predict, quarter)
 
     # Perform prediction and add the probabilities to the dataframe
     features = list(config['TRAIN']['FEATURES'])
-    missing_rows = df_predict[features].isnull().any(axis=1)
-    df_predict = df_predict[~missing_rows]
     df_probabilities = utils.predict_and_explain(clf_model[model_names[0]], clf_model[model_names[1]], df_predict, features)
 
     # Rename columns, add insert date and select columns to save
@@ -160,10 +187,10 @@ if __name__ == "__main__":
     df_probabilities['model_version']=f'{model_year}-{model_month}-{model_day}'
     SAGEMAKER_LOGGER.info(f"userlog: {df_probabilities.columns}")
     df_probabilities = df_probabilities[config['PREDICT']['COLUMNS_SAVE']]
-    SAGEMAKER_LOGGER.info(f"userlog: {df_probabilities.info()}")
+    SAGEMAKER_LOGGER.info(f"userlog: {df_probabilities.size}")
 
     # Save the prediction results to S3
-    save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/04_predict_historic_step/{year}{month}{day}/historic_predictions.csv"
+    save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/04_predict_historic_step/{year}{month}{day}/historic_predictions_{quarter}.csv"
     SAGEMAKER_LOGGER.info("userlog: Saving information for predict step in %s.", save_path)
     df_probabilities.to_csv(save_path, index=False)
     

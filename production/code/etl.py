@@ -294,6 +294,9 @@ if __name__ == "__main__":
     df_historic = df_historic[['respondent_id' , 'date_flight_local'] + features_dummy + labels]
     df_incremental = df_incremental[['respondent_id' , 'date_flight_local'] + features_dummy + labels]
 
+    df_historic = df_historic.drop_duplicates()
+    df_incremental = df_incremental.drop_duplicates()
+    
     SAGEMAKER_LOGGER.info("userlog: Size of resulting df_historic:", df_historic.shape)
     SAGEMAKER_LOGGER.info("userlog: Size of resulting df_incremental:", df_incremental.shape)
     # Save data for training
@@ -304,7 +307,7 @@ if __name__ == "__main__":
     # Incremental
     save_path = f"s3://{S3_BUCKET_NPS}/{S3_PATH_WRITE}/00_etl_step/{USE_TYPE}/{year}{month}{day}"
     SAGEMAKER_LOGGER.info("userlog: Saving information for etl step in %s.", save_path)
-    df_historic.to_csv(f'{save_path}/incremental.csv', index=False)
+    df_incremental.to_csv(f'{save_path}/incremental.csv', index=False)
 
 
 

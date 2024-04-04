@@ -219,9 +219,9 @@ def get_pipeline(
         code=predict_step_args.code,  # Code to execute for the step
     )
 
-    # PREDICT HISTORIC
+    # PREDICT HISTORIC Q1
     framework_processor = processors.framework()
-    predict_historic_step_args = framework_processor.get_run_args(
+    predict_historic_q1_step_args = framework_processor.get_run_args(
         code=path_join(BASE_DIR, "code", "predict_historic.py"),  # Path to the predict.py script
         dependencies=[
             path_join(BASE_DIR, "packages", "utils.py"),  # Path to the utils.py file
@@ -237,26 +237,164 @@ def get_pipeline(
             param_str_execution_date,
             "--is_last_date",
             param_is_last_date,
+            "--quarter",
+            "q1",
         ],
     )
 
-    #PREDICT HISTORIC STEP
-    predict_historic_step = ProcessingStep(
-        name="predict_historic_step",
+    #PREDICT HISTORIC STEP Q1
+    predict_historic_q1_step = ProcessingStep(
+        name="predict_historic_q1_step",
         depends_on=["train_step"],  # Depends on the previous step "train_step"
         processor=framework_processor,  # Processor to use for the step
-        inputs=predict_historic_step_args.inputs,  # Input data for the step
-        outputs=predict_historic_step_args.outputs,  # Output data for the step
-        job_arguments=predict_historic_step_args.arguments,  # Additional job arguments
-        code=predict_historic_step_args.code,  # Code to execute for the step
+        inputs=predict_historic_q1_step_args.inputs,  # Input data for the step
+        outputs=predict_historic_q1_step_args.outputs,  # Output data for the step
+        job_arguments=predict_historic_q1_step_args.arguments,  # Additional job arguments
+        code=predict_historic_q1_step_args.code,  # Code to execute for the step
     )
+    
+    # PREDICT HISTORIC Q2
+    framework_processor = processors.framework()
+    predict_historic_q2_step_args = framework_processor.get_run_args(
+        code=path_join(BASE_DIR, "code", "predict_historic.py"),  # Path to the predict.py script
+        dependencies=[
+            path_join(BASE_DIR, "packages", "utils.py"),  # Path to the utils.py file
+            path_join(BASE_DIR, "packages", "config.yml"),  # Path to the config.yml file
+            path_join(BASE_DIR, "packages", "requirements", "predict_historic.txt"),  # Path to the predict_historic.txt file
+        ],
+        arguments=[
+            "--s3_bucket",
+            param_s3_bucket_nps,
+            "--s3_path_write",
+            param_s3_path_write,
+            "--str_execution_date",
+            param_str_execution_date,
+            "--is_last_date",
+            param_is_last_date,
+            "--quarter",
+            "q2",
+        ],
+    )
+
+    #PREDICT HISTORIC STEP Q2
+    predict_historic_q2_step = ProcessingStep(
+        name="predict_historic_q2_step",
+        depends_on=["train_step"],  # Depends on the previous step "train_step"
+        processor=framework_processor,  # Processor to use for the step
+        inputs=predict_historic_q2_step_args.inputs,  # Input data for the step
+        outputs=predict_historic_q2_step_args.outputs,  # Output data for the step
+        job_arguments=predict_historic_q2_step_args.arguments,  # Additional job arguments
+        code=predict_historic_q2_step_args.code,  # Code to execute for the step
+    )
+    
+    # PREDICT HISTORIC Q3
+    framework_processor = processors.framework()
+    predict_historic_q3_step_args = framework_processor.get_run_args(
+        code=path_join(BASE_DIR, "code", "predict_historic.py"),  # Path to the predict.py script
+        dependencies=[
+            path_join(BASE_DIR, "packages", "utils.py"),  # Path to the utils.py file
+            path_join(BASE_DIR, "packages", "config.yml"),  # Path to the config.yml file
+            path_join(BASE_DIR, "packages", "requirements", "predict_historic.txt"),  # Path to the predict_historic.txt file
+        ],
+        arguments=[
+            "--s3_bucket",
+            param_s3_bucket_nps,
+            "--s3_path_write",
+            param_s3_path_write,
+            "--str_execution_date",
+            param_str_execution_date,
+            "--is_last_date",
+            param_is_last_date,
+            "--quarter",
+            "q3",
+        ],
+    )
+
+    #PREDICT HISTORIC STEP Q3
+    predict_historic_q3_step = ProcessingStep(
+        name="predict_historic_q3_step",
+        depends_on=["train_step"],  # Depends on the previous step "train_step"
+        processor=framework_processor,  # Processor to use for the step
+        inputs=predict_historic_q3_step_args.inputs,  # Input data for the step
+        outputs=predict_historic_q3_step_args.outputs,  # Output data for the step
+        job_arguments=predict_historic_q3_step_args.arguments,  # Additional job arguments
+        code=predict_historic_q3_step_args.code,  # Code to execute for the step
+    )
+    
+    # PREDICT HISTORIC Q4
+    framework_processor = processors.framework()
+    predict_historic_q4_step_args = framework_processor.get_run_args(
+        code=path_join(BASE_DIR, "code", "predict_historic.py"),  # Path to the predict.py script
+        dependencies=[
+            path_join(BASE_DIR, "packages", "utils.py"),  # Path to the utils.py file
+            path_join(BASE_DIR, "packages", "config.yml"),  # Path to the config.yml file
+            path_join(BASE_DIR, "packages", "requirements", "predict_historic.txt"),  # Path to the predict_historic.txt file
+        ],
+        arguments=[
+            "--s3_bucket",
+            param_s3_bucket_nps,
+            "--s3_path_write",
+            param_s3_path_write,
+            "--str_execution_date",
+            param_str_execution_date,
+            "--is_last_date",
+            param_is_last_date,
+            "--quarter",
+            "q4",
+        ],
+    )
+
+    #PREDICT HISTORIC STEP Q4
+    predict_historic_q4_step = ProcessingStep(
+        name="predict_historic_q4_step",
+        depends_on=["train_step"],  # Depends on the previous step "train_step"
+        processor=framework_processor,  # Processor to use for the step
+        inputs=predict_historic_q4_step_args.inputs,  # Input data for the step
+        outputs=predict_historic_q4_step_args.outputs,  # Output data for the step
+        job_arguments=predict_historic_q4_step_args.arguments,  # Additional job arguments
+        code=predict_historic_q4_step_args.code,  # Code to execute for the step
+    )
+
+    # JOIN HISTORIC PREDICTIONS
+    framework_processor = processors.framework()
+    join_historic_predictions_step_args = framework_processor.get_run_args(
+        code=path_join(BASE_DIR, "code", "join_historic_predictions.py"),  # Path to the predict.py script
+        dependencies=[
+            path_join(BASE_DIR, "packages", "utils.py"),  # Path to the utils.py file
+            path_join(BASE_DIR, "packages", "config.yml"),  # Path to the config.yml file
+            path_join(BASE_DIR, "packages", "requirements", "join_historic_predictions.txt"),  # Path to the join_historic_predictions.txt file
+        ],
+        arguments=[
+            "--s3_bucket",
+            param_s3_bucket_nps,
+            "--s3_path_write",
+            param_s3_path_write,
+            "--str_execution_date",
+            param_str_execution_date,
+            "--is_last_date",
+            param_is_last_date,
+        ],
+    )
+        
+    #JOIN HISTORIC PREDICTIONS
+    join_historic_predictions_step = ProcessingStep(
+        name="join_historic_predictions_step",
+        depends_on=[predict_historic_q1_step, predict_historic_q2_step, predict_historic_q3_step, predict_historic_q4_step],  # Depends on the previous step "train_step"
+        processor=framework_processor,  # Processor to use for the step
+        inputs=join_historic_predictions_step_args.inputs,  # Input data for the step
+        outputs=join_historic_predictions_step_args.outputs,  # Output data for the step
+        job_arguments=join_historic_predictions_step_args.arguments,  # Additional job arguments
+        code=join_historic_predictions_step_args.code,  # Code to execute for the step
+    )
+    
 
     # CONDITION STEP
     condition_step = ConditionStep(
         name="condition_step",
         depends_on=["preprocess_step"],  # Depends on the previous step "etl_step"
         conditions=[train_predict_condition],  # Condition for branching
-        if_steps=[train_step,predict_historic_step],  # Steps to execute if the condition is true
+        if_steps=[train_step, predict_historic_q1_step, predict_historic_q2_step, predict_historic_q3_step, predict_historic_q4_step, join_historic_predictions_step], 
+        # if_steps= [join_historic_predictions_step],# Steps to execute if the condition is true
         else_steps=[predict_step]  # Steps to execute if the condition is false
     )
 
