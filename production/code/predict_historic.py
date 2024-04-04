@@ -157,7 +157,7 @@ if __name__ == "__main__":
     # Obtener el año para cada fecha (necesario para construir rangos de fechas)
     df_predict = df_predict[df_predict['date_flight_local'].dt.year >= 2023]
     
-    df_predict = df_predict[df_predict['date_flight_local'].dt.day == 1]
+    # df_predict = df_predict[df_predict['date_flight_local'].dt.day == 1]
 
     def filter_data_by_quarter(df, quarter):
         # Definir los rangos de fechas para cada trimestre
