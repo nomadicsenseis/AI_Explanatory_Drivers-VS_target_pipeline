@@ -124,8 +124,8 @@ def get_path_to_read_and_date(
             preffix=date_preffix,
             n_partition=n_partition,
         )
-        # date = path.split("/")[-1].split("=")[-1].replace("-", "")
-        date = partition_date.split("/")[-1].split("=")[-1].replace("-", "")
+        date = path.split("/")[-1].split("=")[-1].replace("-", "")
+        # date = partition_date.split("/")[-1].split("=")[-1].replace("-", "")
         year, month, day = date[:4], date[4:6], date[6:]
         path = f"s3://{path}"
     else:

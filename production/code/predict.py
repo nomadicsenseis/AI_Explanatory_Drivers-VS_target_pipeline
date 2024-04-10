@@ -126,7 +126,7 @@ if __name__ == "__main__":
 
         # Determine the path to read the model from
         model_path, model_year, model_month, model_day = utils.get_path_to_read_and_date(
-            read_last_date=bool(int(IS_LAST_DATE)),
+            read_last_date=True,
             bucket=S3_BUCKET,
             key=path_read_train,
             partition_date=STR_EXECUTION_DATE,
