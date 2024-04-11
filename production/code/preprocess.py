@@ -246,8 +246,8 @@ def get_names_from_pipeline(preprocessor):
 
 def split_train_val_test(X: DataFrame, target) -> object:
     # Split between train, validation and test
-    X_traintest, X_val, y_traintest, y_val = train_test_split(X, target, stratify=target, test_size=0.15)
-    X_train, X_test, y_train, y_test = train_test_split(X_traintest, y_traintest, stratify=y_traintest, test_size=0.2)
+    X_traintest, X_val, y_traintest, y_val = train_test_split(X, target, stratify=X["date_flight_local"].dt.year, test_size=0.2)
+    X_train, X_test, y_train, y_test = train_test_split(X_traintest, y_traintest, stratify=X["date_flight_local"].dt.year, test_size=0.2)
     return X_train, X_test, X_val, y_train, y_test, y_val
 
 def read_data(prefix) -> DataFrame:

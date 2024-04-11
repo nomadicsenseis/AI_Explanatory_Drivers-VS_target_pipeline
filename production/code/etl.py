@@ -224,8 +224,10 @@ if __name__ == "__main__":
     # 3. Filter out covid years
     SAGEMAKER_LOGGER.info("userlog: ETL 3.0 Filter out covid years.")
     # NPS (historic)
+    df_nps_historic = df_nps_historic[df_nps_historic['date_flight_local'].dt.year >= 2019]
     df_nps_historic = df_nps_historic[~df_nps_historic['date_flight_local'].dt.year.isin([2020, 2021])]
     # Load factor (historic)
+    df_lf_historic = df_lf_historic[df_lf_historic['date_flight_local'].dt.year >= 2019]
     df_lf_historic = df_lf_historic[~df_lf_historic['flight_date_local'].dt.year.isin([2020, 2021])]
 
     # 4. Create otp, promoter, detractor and load factor columns.
