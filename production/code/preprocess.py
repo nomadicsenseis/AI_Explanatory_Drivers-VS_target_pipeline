@@ -245,9 +245,17 @@ def get_names_from_pipeline(preprocessor):
 
 
 def split_train_val_test(X: DataFrame, target) -> object:
-    # Split between train, validation and test
-    X_traintest, X_val, y_traintest, y_val = train_test_split(X, target, stratify=X["date_flight_local"].dt.year, test_size=0.2)
-    X_train, X_test, y_train, y_test = train_test_split(X_traintest, y_traintest, stratify=X["date_flight_local"].dt.year, test_size=0.2)
+    # Extraer el año antes de las divisiones
+    years = X["date_flight_local"].dt.year
+    
+    # División inicial entre conjuntos de entrenamiento+prueba y validación
+    X_traintest, X_val, y_traintest, y_val, years_traintest, years_val = train_test_split(
+        X, target, years, stratify=years, test_size=0.2)
+    
+    # Segunda división para separar entrenamiento y prueba
+    X_train, X_test, y_train, y_test = train_test_split(
+        X_traintest, y_traintest, stratify=years_traintest, test_size=0.2)
+    
     return X_train, X_test, X_val, y_train, y_test, y_val
 
 def read_data(prefix) -> DataFrame:
@@ -336,6 +344,7 @@ if __name__ == "__main__":
         # Read data
         # df_features = read_csv_from_s3(S3_BUCKET, src_path_historic)
         df_features = pd.read_csv(src_path_historic)
+        df_features['date_flight_local'] = pd.to_datetime(df_features['date_flight_local'])
         labels = config.get("VARIABLES_ETL").get('LABELS')
 
         # Divide train and test
