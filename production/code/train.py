@@ -277,11 +277,6 @@ if __name__ == "__main__":
     X_train = cast_variables_types(X_train)
     SAGEMAKER_LOGGER.info(f"X_TRAIN SHAPE {X_train.shape} ; {y_train[labels[0]].shape} ;  {y_train[labels[1]].shape}")
     SAGEMAKER_LOGGER.info(f"WARNING X_TRAIN: rows with na {X_train[features].isnull().any(axis=1).sum()}")
-    missing_rows = X_train[features].isnull().any(axis=1)
-    X_train = X_train[~missing_rows]
-    for target in labels:
-        y_train[target] = y_train[target][~missing_rows]
-        SAGEMAKER_LOGGER.info(f"X_TRAIN SHAPE {X_train.shape} ; {y_train[target].shape}")
 
     # Estimator
     SAGEMAKER_LOGGER.info(f"userlog: INPUT COLS: {str(features)}")
