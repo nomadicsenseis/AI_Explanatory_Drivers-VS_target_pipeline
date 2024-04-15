@@ -182,6 +182,8 @@ if __name__ == "__main__":
 
     # 1. Filter dataframes by carrier code.
     SAGEMAKER_LOGGER.info("userlog: ETL 1.0 Filter dataframes by carrier code.")
+    df_nps_historic['haul'] = df_nps_historic['haul'].replace('MH', 'SH')
+    df_nps_incremental['haul'] = df_nps_incremental['haul'].replace('MH', 'SH')
     # NPS HISTORIC
     condition_1 = (df_nps_historic['operating_airline_code'].isin(['IB', 'YW']))
     condition_2 = ((df_nps_historic['invitegroup_ib'] != 3) | (df_nps_historic['invitegroup_ib'].isnull()))
@@ -264,20 +266,53 @@ if __name__ == "__main__":
                                     'operating_airline_code' if x=='operating_carrier' else
                                     'surveyed_flight_number' if x=='op_flight_num' else
                                     x for x in df_lf_historic.columns]
+    
+    # List of columns to transform
+    load_factor_columns = ['load_factor_business', 'load_factor_premium_ec', 'load_factor_economy']
+
+    # Automatically determine id_vars by excluding load_factor_columns from all columns
+    id_vars = [col for col in df_lf_historic.columns if col not in load_factor_columns]
+
+    # Reshaping the DataFrame while dynamically keeping all other columns
+    df_lf_historic = pd.melt(df_lf_historic, id_vars=id_vars, 
+                      value_vars=load_factor_columns,
+                      var_name='cabin_in_surveyed_flight', value_name='load_factor')
+
+    # Replacing the column names in 'cabin_in_surveyed_flight' with the desired cabin types
+    df_lf_historic['cabin_in_surveyed_flight'] = df_lf_historic['cabin_in_surveyed_flight'].map({
+        'load_factor_business': 'Business',
+        'load_factor_premium_ec': 'Premium Economy',
+        'load_factor_economy': 'Economy'
+    })
 
     df_historic = pd.merge(df_nps_historic, df_lf_historic, 
                         how='left', 
                         on=['date_flight_local', 'operating_airline_code', 'surveyed_flight_number', 'haul'])
-
-    df_historic['load_factor'] = df_historic.apply(lambda row: row[cabin_to_load_factor_column[row['cabin_in_surveyed_flight']]], axis=1)
 
     # INCREMENTAL
     df_lf_incremental.columns = ['date_flight_local' if x=='flight_date_local' else 
                                     'operating_airline_code' if x=='operating_carrier' else
                                     'surveyed_flight_number' if x=='op_flight_num' else
                                     x for x in df_lf_incremental.columns]
+    # List of columns to transform
+    load_factor_columns = ['load_factor_business', 'load_factor_premium_ec', 'load_factor_economy']
 
-    df_incremental = pd.merge(df_nps_incremental, df_lf_incremental, 
+    # Automatically determine id_vars by excluding load_factor_columns from all columns
+    id_vars = [col for col in df_lf_incremental.columns if col not in load_factor_columns]
+
+    # Reshaping the DataFrame while dynamically keeping all other columns
+    df_lf_incremental = pd.melt(df_lf_incremental, id_vars=id_vars, 
+                      value_vars=load_factor_columns,
+                      var_name='cabin_in_surveyed_flight', value_name='load_factor')
+
+    # Replacing the column names in 'cabin_in_surveyed_flight' with the desired cabin types
+    df_lf_incremental['cabin_in_surveyed_flight'] = df_lf_incremental['cabin_in_surveyed_flight'].map({
+        'load_factor_business': 'Business',
+        'load_factor_premium_ec': 'Premium Economy',
+        'load_factor_economy': 'Economy'
+    })
+
+    df_incremental = pd.merge(df_nps_incremental, df_lf_historic, 
                         how='left', 
                         on=['date_flight_local', 'operating_airline_code', 'surveyed_flight_number', 'haul'])
 
