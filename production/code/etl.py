@@ -228,6 +228,8 @@ if __name__ == "__main__":
     # NPS (historic)
     df_nps_historic = df_nps_historic[df_nps_historic['date_flight_local'].dt.year >= 2019]
     df_nps_historic = df_nps_historic[~df_nps_historic['date_flight_local'].dt.year.isin([2020, 2021])]
+    df_nps_incremental = df_nps_incremental[df_nps_incremental['date_flight_local'].dt.year >= 2019]
+    df_nps_incremental = df_nps_incremental[~df_nps_incremental['date_flight_local'].dt.year.isin([2020, 2021])]
     # Load factor (historic)
     df_lf_historic = df_lf_historic[df_lf_historic['flight_date_local'].dt.year >= 2019]
     df_lf_historic = df_lf_historic[~df_lf_historic['flight_date_local'].dt.year.isin([2020, 2021])]
@@ -267,6 +269,9 @@ if __name__ == "__main__":
                                     'surveyed_flight_number' if x=='op_flight_num' else
                                     x for x in df_lf_historic.columns]
     
+    df_lf_historic['date_flight_local']=pd.to_datetime(df_lf_historic['date_flight_local'])
+    df_lf_historic['surveyed_flight_number'] = df_lf_historic['surveyed_flight_number'].astype('float64')
+    
     # List of columns to transform
     load_factor_columns = ['load_factor_business', 'load_factor_premium_ec', 'load_factor_economy']
 
@@ -287,7 +292,7 @@ if __name__ == "__main__":
 
     df_historic = pd.merge(df_nps_historic, df_lf_historic, 
                         how='left', 
-                        on=['date_flight_local', 'operating_airline_code', 'surveyed_flight_number', 'haul'])
+                        on=['date_flight_local', 'surveyed_flight_number', 'cabin_in_surveyed_flight'])
 
     # INCREMENTAL
     df_lf_incremental.columns = ['date_flight_local' if x=='flight_date_local' else 
@@ -314,9 +319,8 @@ if __name__ == "__main__":
 
     df_incremental = pd.merge(df_nps_incremental, df_lf_historic, 
                         how='left', 
-                        on=['date_flight_local', 'operating_airline_code', 'surveyed_flight_number', 'haul'])
+                        on=['date_flight_local',  'surveyed_flight_number', 'cabin_in_surveyed_flight'])
 
-    df_incremental['load_factor'] = df_incremental.apply(lambda row: row[cabin_to_load_factor_column[row['cabin_in_surveyed_flight']]], axis=1)
 
     # 6. Filter out final columns for the model
     SAGEMAKER_LOGGER.info("userlog: ETL 6.0 Filter out final columns for the model")
