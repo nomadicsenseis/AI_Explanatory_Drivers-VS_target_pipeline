@@ -50,14 +50,34 @@ from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler, OneHotEncoder
 from sklearn.compose import ColumnTransformer
 
+import darts
+from darts import TimeSeries
+from darts.utils.timeseries_generation import (
+    gaussian_timeseries,
+    linear_timeseries,
+    sine_timeseries,
+)
 
-# Models
-from catboost import CatBoostClassifier, cv, Pool
-from sklearn.linear_model import LinearRegression
-from sklearn.ensemble import GradientBoostingRegressor
+from darts.metrics import mape, smape, mae
+from darts.dataprocessing.transformers import Scaler
+from darts.utils.timeseries_generation import datetime_attribute_timeseries
 
-# SHAP
-import shap
+from sklearn.linear_model import BayesianRidge
+from sklearn.ensemble import RandomForestRegressor
+
+import lightgbm
+
+from darts.models import LightGBMModel
+
+from darts.models import LightGBMModel, RandomForest, LinearRegressionModel
+from darts.utils.statistics import check_seasonality, plot_acf, plot_residuals_analysis
+
+from darts.explainability.shap_explainer import ShapExplainer
+import pickle
+from sklearn.metrics import mean_absolute_error, mean_absolute_percentage_error
+from darts.models import LinearRegressionModel, LightGBMModel, RandomForest
+from calendar import month_name as mn
+import os
 
 # Random
 import random
@@ -118,81 +138,107 @@ if __name__ == "__main__":
 
     # Load the configuration data
     config = utils.read_config_data()
-    model_names = list(config['TRAIN']['MODEL_NAME'])
+    
+    keys = list(config['PREDICT']['CABIN_HAULS'])
+    model_names = list(config['PREDICT']['MODEL_NAME'])
+    scaler_names = list(config['PREDICT']['SCALER_NAME'])
+    features = list(config['PREDICT']['FEATURES'])
+    cols_to_save = list(config['PREDICT']['COLUMNS_SAVE'])
+
+    # Initialize boto3 S3 client
+    s3 = boto3.client('s3')
 
     # Define the paths for reading data and the trained model
-    read_path = f"{S3_PATH_WRITE}/01_preprocess_step/train/{year}{month}{day}"
-    clf_model={}
-    for name in model_names:
-        path_read_train = f"{S3_PATH_WRITE}/02_train_step/{name}"
-
-        # Determine the path to read the model from
-        model_path, model_year, model_month, model_day = utils.get_path_to_read_and_date(
-            read_last_date=bool(int(IS_LAST_DATE)),
-            bucket=S3_BUCKET,
-            key=path_read_train,
-            partition_date=STR_EXECUTION_DATE,
-        )
-
-        # Extract the bucket and object key from the model_path
-        if 's3://' in model_path:
-            model_path = model_path.split('//')[1].replace(f"{S3_BUCKET}/", '')
-        SAGEMAKER_LOGGER.info(f"userlog: path for models: {model_path + '/model/'}")
-
-        # Load the trained model from S3
-        s3_resource = resource("s3")
-        fitted_clf_model = (
-            s3_resource.Bucket(S3_BUCKET)
-            .Object(f"{model_path}/model/CatBoostClassifier_cv.pkl")
-            .get()
-        )
-        clf_model[name] = pickle.loads(fitted_clf_model["Body"].read())
+    read_path = f"{S3_PATH_WRITE}/01_preprocess_step/predict_historic/{year}{month}{day}"
 
     # Load the data to predict
-    df_predict = read_csv(f"s3://{S3_BUCKET}/{read_path}/data_for_historic_prediction.csv")
+    df_predict = pd.read_csv(f"s3://{S3_BUCKET}/{read_path}/data_for_historic_prediction.csv")
+    def split_df_by_quarters(df):
+        num_rows = len(df)
+        quarter_size = num_rows // 4
+        quarters = {}
+        for i in range(4):
+            start_index = i * quarter_size
+            if i == 3:  # Asegurar que el último "quarter" incluya el resto de las filas
+                end_index = num_rows
+            else:
+                end_index = start_index + quarter_size
+            quarters[f"q{i+1}"] = df.iloc[start_index:end_index]
+        return quarters
+
+    def get_data_by_quarter(df, quarter):
+        quarters = split_df_by_quarters(df)
+        return quarters[quarter]
+
+    # Uso del código
+    df_predict = get_data_by_quarter(df_predict, quarter)  # Cambia 'q1' por 'q2', 'q3', o 'q4' según sea necesario
+
+    day_predict_df, day_predict_df_grouped_dfs = utils.process_dataframe(df_predict)
+
+    # Initialize a dictionary to store the augmented DataFrames, models, and scalers
+    augmented_dfs = {}
+    lgbm_model = {}
+    future_scalers = {}
+
+    for key in day_predict_df_grouped_dfs.keys():
+        # Initialize a list to collect augmented rows
+        augmented_rows = []
+
+        # Load the pre-trained model and scaler from S3
+        path = f"{S3_PATH_WRITE}/targets_pretrained_model"
+        future_scaler_key = f"{path}/future_scaler_{key}.pkl"
+        model_key = f"{path}/best_tuned_mae_model_{key}_LightGBMModel.pkl"
+
+        # Load scaler
+        scaler_response = s3.get_object(Bucket=S3_BUCKET, Key=future_scaler_key)
+        future_scalers[key] = pickle.loads(scaler_response['Body'].read())
+
+        # Load model
+        model_response = s3.get_object(Bucket=S3_BUCKET, Key=model_key)
+        lgbm_model[key] = pickle.loads(model_response['Body'].read())
+
+        for index in range(len(day_predict_df_grouped_dfs[key])):
+            # Access the row by its index using .iloc
+            row_df = day_predict_df_grouped_dfs[key].iloc[[index]]
+
+            # Compute SHAP values and predicted NPS here...
+            # Assuming `compute_shap_and_prediction` is a function you'd implement
+            # This function should return SHAP values as a dict and the predicted NPS
+            shap_values = utils.compute_shap_and_prediction(row_df, key, features, future_scalers[key], lgbm_model[key])
+
+            # For each feature, add its SHAP value to the row
+            for feature_name, shap_value in shap_values.items():
+                row_df[f'{feature_name}'] = shap_value
+
+            # Add base value and predicted NPS columns
+            # row_df['Base Value'] = shap_values['base_value']  # Adjust based on how you obtain the base value
+            # row_df['Predicted NPS'] = predicted_nps
+            # Append the augmented row to the list
+            augmented_rows.append(row_df)
+
+
+        # Concatenate all augmented rows to form the complete augmented DataFrame
+        augmented_dfs[key] = pd.concat(augmented_rows).reset_index(drop=True)
+        
+        # Reconstruir el DataFrame original
+    df = pd.concat(augmented_dfs.values())
+    df.reset_index(drop=True, inplace=True)
+
+    # Rename columns, add insert date and select columns to save
+    df = df[cols_to_save]
+    SAGEMAKER_LOGGER.info(f"userlog: {df.info()}")
     
-    # Asegurarse de que 'date_flight_local' esté en formato datetime
-    df_predict['date_flight_local'] = pd.to_datetime(df_predict['date_flight_local'])
+
+    # Save the prediction results to S3
+    save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/03_predict_historic_step/{year}{month}{day}/historic_predictions_{quarter}.csv"
+    SAGEMAKER_LOGGER.info("userlog: Saving information for predict step in %s.", save_path)
+    df.to_csv(save_path, index=False)
 
     # Obtener el año para cada fecha (necesario para construir rangos de fechas)
     # df_predict = df_predict[df_predict['date_flight_local'].dt.year >= 2023]
     
     # df_predict = df_predict[df_predict['date_flight_local'].dt.day == 1]
 
-    def filter_data_by_quarter(df, quarter):
-        # Definir los rangos de fechas para cada trimestre
-        quarters = {
-            "q1": (1, 3),
-            "q2": (4, 6),
-            "q3": (7, 9),
-            "q4": (10, 12)
-        }
-
-        # Obtener el rango de meses para el trimestre especificado
-        start_month, end_month = quarters[quarter]
-
-        # Filtrar el DataFrame por el rango de fechas del trimestre
-        df_filtered = df[df['date_flight_local'].dt.month.between(start_month, end_month)]
-
-        return df_filtered
-    
-    df_predict = filter_data_by_quarter(df_predict, quarter)
-
-    # Perform prediction and add the probabilities to the dataframe
-    features = list(config['TRAIN']['FEATURES'])
-    df_probabilities = utils.predict_and_explain(clf_model[model_names[0]], clf_model[model_names[1]], df_predict, features)
-
-    # Rename columns, add insert date and select columns to save
-    df_probabilities['insert_date_ci'] = STR_EXECUTION_DATE
-    df_probabilities['model_version']=f'{model_year}-{model_month}-{model_day}'
-    SAGEMAKER_LOGGER.info(f"userlog: {df_probabilities.columns}")
-    df_probabilities = df_probabilities[config['PREDICT']['COLUMNS_SAVE']]
-    SAGEMAKER_LOGGER.info(f"userlog: {df_probabilities.size}")
-
-    # Save the prediction results to S3
-    save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/04_predict_historic_step/{year}{month}{day}/historic_predictions_{quarter}.csv"
-    SAGEMAKER_LOGGER.info("userlog: Saving information for predict step in %s.", save_path)
-    df_probabilities.to_csv(save_path, index=False)
     
     
 

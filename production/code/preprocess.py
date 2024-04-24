@@ -68,141 +68,121 @@ class Arguments(utils.AbstractArguments):
 
         # "--str_execution_date": is the execution date of the script.
         parser.add_argument("--str_execution_date", type=str)
+        
+        # "--str_intervals_starting_date": is the execution date of the script.
+        parser.add_argument("--str_intervals_starting_date", type=str)
 
         # "--use_type": specifies the type of use, it can be "predict" to predict or "train" to train the model.
-        parser.add_argument("--use_type", type=str, choices=["predict", "train"])
+        parser.add_argument("--use_type", type=str, choices=["predict", "predict_historic"])
 
         # Finally, we parse the arguments and store them in the self.args property of the class.
         self.args = parser.parse_args()
 
 
-def feature_processer(df: DataFrame, use_type='predict', y_train=None) -> DataFrame:
-    """
-    This function processes the features of the input DataFrame depending on the mode (prediction or training).
-    If in prediction mode, it applies a pre-saved pipeline transformation.
-    If in training mode, it fits and applies the transformation pipeline, and saves the pipeline for future use.
+def calculate_nps(promoters, detractors, total_responses):
+    """Calcula el Net Promoter Score (NPS)."""
+    return ((promoters - detractors) / total_responses) * 100 if total_responses != 0 else 0
 
-    Parameters:
-    df (DataFrame): The input DataFrame to be processed.
-    use_type (str): The mode, either 'predict' or 'train'. Default is 'predict'.
-    y_train (Series): The target variable Series if in 'train' mode.
-
-    Returns:
-    DataFrame: The processed DataFrame.
-    """
-    save_path = f'{S3_PATH_WRITE}/01_preprocess_step/{USE_TYPE}/{year}{month}{day}'
-    save_path_read = f'{S3_PATH_WRITE}/01_preprocess_step/{USE_TYPE}'
-
-    # Convert 'date_flight_local' to datetime and extract 'month' and 'year' if not already done
-    df['date_flight_local'] = pd.to_datetime(df['date_flight_local'])
-    df['month'] = df['date_flight_local'].dt.month
-    df['year'] = df['date_flight_local'].dt.year
-
-    # In prediction mode
-    if use_type == 'predict':
-        # Get the path to the saved transformation pipeline
-        model_path, _, _, _ = utils.get_path_to_read_and_date(
-            read_last_date=bool(int(IS_LAST_DATE)),
-            bucket=S3_BUCKET,
-            key=f'{S3_PATH_WRITE}/01_preprocess_step/train',
-            partition_date=STR_EXECUTION_DATE,
-        )
-        # # Remove s3 info path
-        if 's3://' in model_path:
-            model_path = model_path.split('//')[1].replace(f"{S3_BUCKET}/", '')
-        SAGEMAKER_LOGGER.info(f"userlog: path for models: {model_path + '/models/'}")
-
-        # Loop over each month to reead the transformation pipeline
-        for m in sorted(df['month'].unique()):
-            # Filter the data for the specific month
-            df_month = df[df['month'] == m]
-            # Split data into features and target
-            X = df_month.drop(columns=['ticket_price', 'date_flight_local', 'month', 'year'])
-            y = df_month['ticket_price']
-        
-            # Read the transformation pipeline
-            pipeline = (
-                s3_resource.Object(S3_BUCKET, f"{model_path}/models/{config['PREPROCESS']['PIPELINE_NAME']}_{m}.pkl")
-                .get()
-            )
-
-            # Load the pipeline and apply transformation
-            pipe = pickle.loads(pipeline["Body"].read())
-            time.sleep(10)
-            
-            # Identify indices where ticket_price is NaN for imputation
-            idx_missing = y[y.isna()].index
-                
-            # Predict missing ticket_price values
-            X_missing = X.loc[idx_missing]
-            if len(X_missing) > 0:
-                imputed_values = pipe.predict(X_missing)
-                # Fill in the missing values in the original DataFrame
-                df.loc[idx_missing, 'ticket_price'] = imputed_values
-
-    # In training mode
+def calculate_weighted_nps(group_df):
+    """Calcula el NPS ponderado para un grupo de datos."""
+    promoters_weight = group_df.loc[group_df['nps_100'] > 8, 'monthly_weight'].sum()
+    detractors_weight = group_df.loc[group_df['nps_100'] <= 6, 'monthly_weight'].sum()
+    total_weight = group_df['monthly_weight'].sum()
+    
+    if total_weight > 0:
+        return (promoters_weight - detractors_weight) / total_weight * 100
     else:
-        # Complex 2019 ticket_price inputer
-        # Identify categorical and numerical columns; make sure 'month' and 'year' are not in these lists
-        categorical_features = df.select_dtypes(include=['object', 'bool']).columns.tolist()
-        numerical_features = df.select_dtypes(include=['int64', 'float64']).columns.drop(['ticket_price', 'month', 'year']).tolist()
+        return 0
 
-        # Define the preprocessing for numerical and categorical data
-        preprocessor = ColumnTransformer(
-            transformers=[
-                ('num', SimpleImputer(strategy='median'), numerical_features),
-                ('cat', OneHotEncoder(handle_unknown='ignore'), categorical_features),
-            ]
-        )
+def calculate_satisfaction(df, variable):
+    """Calcula la tasa de satisfacción para una variable dada."""
+    satisfied_count = df[df[variable] >= 8].shape[0]
+    total_count = df[variable].notnull().sum()
+    return (satisfied_count / total_count) * 100 if total_count != 0 else 0
 
-        # Define the model pipeline
-        pipeline = make_pipeline(
-            preprocessor,
-            GradientBoostingRegressor(random_state=42)
-        )
+def calculate_otp(df, variable='otp15_takeoff'):
+    """Calcula el On-Time Performance (OTP) como el porcentaje de valores igual a 1."""
+    on_time_count = (df[variable] == 0).sum()
+    total_count = df[variable].notnull().sum()
+    return (on_time_count / total_count) * 100 if total_count > 0 else 0
 
-        # Loop over each month to train a model and impute missing values
-        for m in sorted(df['month'].unique()):
-            # Filter the data for the specific month
-            df_month = df[df['month'] == m]
-            
-            # Split data into features and target
-            X = df_month.drop(columns=['ticket_price', 'date_flight_local', 'month', 'year'])
-            y = df_month['ticket_price']
-            
-            # Further split your data into training and missing data (for imputation)
-            X_train = X.loc[y.notna()]
-            y_train = y.loc[y.notna()]
-            
-            if len(X_train) > 0:
-                # Train the model
-                pipeline.fit(X_train, y_train)
 
-                # Save model/pipeline for predict step.
-                s3_resource.Object(S3_BUCKET, f"{save_path}/models/{config['PREPROCESS']['PIPELINE_NAME']}_{m}.pkl").put(
-                    Body=pickle.dumps(pipeline)
-                )
+def calculate_load_factor(df, pax_column, capacity_column):
+    """Calcula el factor de carga para una cabina específica."""
+    total_pax = df[pax_column].sum()
+    total_capacity = df[capacity_column].sum()
+    # Evitar la división por cero
+    if total_capacity > 0:
+        return (total_pax / total_capacity) * 100
+    else:
+        return 0
 
-                
-                # Identify indices where ticket_price is NaN for imputation
-                idx_missing = y[y.isna()].index
-                
-                # Predict missing ticket_price values
-                X_missing = X.loc[idx_missing]
-                if len(X_missing) > 0:
-                    imputed_values = pipeline.predict(X_missing)
-                    
-                    # Fill in the missing values in the original DataFrame
-                    df.loc[idx_missing, 'ticket_price'] = imputed_values
-                    
+    
+def calculate_metrics_summary(df, start_date, end_date, touchpoints):
+    # Filtrar por rango de fechas
+    df_filtered = df[(df['date_flight_local'] >= pd.to_datetime(start_date)) & (df['date_flight_local'] <= pd.to_datetime(end_date))]
+    
+    # Mapeo de cabinas a columnas de pax y capacidad
+    cabin_mapping = {
+        'Economy': ('pax_economy', 'capacity_economy'),
+        'Business': ('pax_business', 'capacity_business'),
+        'Premium Economy': ('pax_premium_ec', 'capacity_premium_ec')
+    }
+    
+    results_list = []
+    
+    for (cabin, haul), group_df in df_filtered.groupby(['cabin_in_surveyed_flight', 'haul']):
+        result = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'cabin_in_surveyed_flight': cabin,
+            'haul': haul,
+            'otp15_takeoff': calculate_otp(group_df)
+        }
+        
+        # Calcula el NPS para el grupo
+        promoters = (group_df['nps_100'] >= 9).sum()
+        detractors = (group_df['nps_100'] <= 6).sum()
+        total_responses = group_df['nps_100'].notnull().sum()
+        result['NPS'] = calculate_nps(promoters, detractors, total_responses) if total_responses else None
+        
+        # Calcula el NPS ponderado para el grupo
+        result['NPS_weighted'] = calculate_weighted_nps(group_df)
+        
+        # Satisfacción para cada touchpoint
+        for tp in touchpoints:
+            result[f'{tp}_satisfaction'] = calculate_satisfaction(group_df, tp)
+        
+        # Calcula el factor de carga para la cabina
+        pax_column, capacity_column = cabin_mapping.get(cabin, (None, None))
+        if pax_column and capacity_column:
+            result['load_factor'] = calculate_load_factor(group_df, pax_column, capacity_column)
+        
+        results_list.append(result)
+    
+    return pd.DataFrame(results_list)
 
-        SAGEMAKER_LOGGER.info(f'Processing X_train {X_train.shape} ')
-        SAGEMAKER_LOGGER.info(f'Processing y_train {y_train.shape} ')
-        SAGEMAKER_LOGGER.info(f'Procesed X_train {X.shape} ')
+def generate_date_intervals(start_date, end_date):
+    """Genera una lista de tuplas con intervalos de fechas desde start_date hasta end_date."""
+    start_date = pd.to_datetime(start_date)
+    end_date = pd.to_datetime(end_date)
+    intervals = [(start_date + pd.Timedelta(days=d), end_date) for d in range((end_date - start_date).days + 1)]
+    return intervals
 
-    df.reset_index(drop=True, inplace=True)
+def calculate_metrics_for_intervals(df, touchpoints, start_date, end_date):
+    """Calcula las métricas para todos los intervalos posibles hasta end_date."""
+    intervals = generate_date_intervals(start_date, end_date)
+    all_metrics = []
 
-    return df
+    for interval_start, interval_end in intervals:
+        interval_metrics = calculate_metrics_summary(df, interval_start, interval_end, touchpoints)
+        all_metrics.append(interval_metrics)
+
+    
+    # Concatenar todos los DataFrames de resultados en uno solo
+    results_df = pd.concat(all_metrics, ignore_index=True)
+    return results_df
+
 
 
 def get_names_from_pipeline(preprocessor):
@@ -244,19 +224,7 @@ def get_names_from_pipeline(preprocessor):
     return output_columns
 
 
-def split_train_val_test(X: DataFrame, target) -> object:
-    # Extraer el año antes de las divisiones
-    years = X["date_flight_local"].dt.year
-    
-    # División inicial entre conjuntos de entrenamiento+prueba y validación
-    X_traintest, X_val, y_traintest, y_val, years_traintest, years_val = train_test_split(
-        X, target, years, stratify=years, test_size=0.2)
-    
-    # Segunda división para separar entrenamiento y prueba
-    X_train, X_test, y_train, y_test = train_test_split(
-        X_traintest, y_traintest, stratify=years_traintest, test_size=0.2)
-    
-    return X_train, X_test, X_val, y_train, y_test, y_val
+
 
 def read_data(prefix) -> DataFrame:
     """This function automatically reads a dataframe processed
@@ -314,6 +282,7 @@ if __name__ == "__main__":
     S3_PATH_WRITE = args.s3_path_write
     USE_TYPE = args.use_type
     STR_EXECUTION_DATE = args.str_execution_date
+    STR_INTERVALS_STARTING_DATE = args.str_intervals_starting_date
     IS_LAST_DATE = 1
     date = STR_EXECUTION_DATE.split("/")[-1].split("=")[-1].replace("-", "")
     year, month, day = date[:4], date[4:6], date[6:]
@@ -328,61 +297,76 @@ if __name__ == "__main__":
     s3_resource = boto3.resource("s3")
 
     # path
-    src_path_historic = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/00_etl_step/{USE_TYPE}/{year}{month}{day}/historic.csv"
-    src_path_incremental = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/00_etl_step/{USE_TYPE}/{year}{month}{day}/incremental.csv"
+    src_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/00_etl_step/{USE_TYPE}/{year}{month}{day}/historic.csv"
 
     out_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/01_preprocess_step/{USE_TYPE}/{year}{month}{day}"
 
+    # Read data
+    df_historic = pd.read_csv(src_path)
+    df_historic['date_flight_local'] = pd.to_datetime(df_historic['date_flight_local'])
+    SAGEMAKER_LOGGER.info(f"userlog: historic_predict pre: {str(df_historic.shape)}")
 
 
     # Execute preprocess
-    in_features_train = config.get("VARIABLES_ETL").get('COLUMNS_TO_SAVE')
-    # in_features_train = config.get("TRAIN").get('FEATURES') 
-    # + [config.get("VARIABLES_ETL").get('ID')]
+    touchpoints = config.get("VARIABLES_PREPROCESS").get('TOUCHPOINTS')
 
-    if USE_TYPE == 'train':
-        # Read data
-        # df_features = read_csv_from_s3(S3_BUCKET, src_path_historic)
-        df_features = pd.read_csv(src_path_historic)
-        df_features['date_flight_local'] = pd.to_datetime(df_features['date_flight_local'])
-        labels = config.get("VARIABLES_ETL").get('LABELS')
+    if USE_TYPE == 'predict_historic':
+        # Convert start_date and end_date strings to datetime objects for manipulation
+        start_date = datetime.strptime(STR_INTERVALS_STARTING_DATE, '%Y-%m-%d')
+        original_end_date = today_date_str
 
-        # Divide train and test
-        X_train, X_test, X_val, y_train, y_test, y_val = split_train_val_test(df_features[in_features_train],
-                                                                              df_features[labels])
-        # Features encoder
-        SAGEMAKER_LOGGER.info(f"X_train, X_test, X_val, y_train, y_test, y_val: {X_train.shape}, {X_test.shape}, "
-                              f"{X_val.shape}, {y_train.shape}, {y_test.shape}, {y_val.shape}")
+        # Initialize an empty DataFrame to store the results from each interval
+        all_intervals_results = pd.DataFrame()
+        
+        # Generar todas las fechas entre start_date y original_end_date (inclusive)
+        date_range = pd.date_range(start=start_date, end=original_end_date)
 
-        X_train = feature_processer(X_train, use_type='train', y_train=y_train)
+        # Iterar sobre cada fecha en el rango de fechas
+        for current_date in date_range:
+            current_date_str = current_date.strftime('%Y-%m-%d')
 
-        X_test = feature_processer(X_test)
-        SAGEMAKER_LOGGER.info(f'Processing X_test, shape {X_test.shape}')
-        X_val = feature_processer(X_val)
-        SAGEMAKER_LOGGER.info(f'Processing X_val, shape {X_val.shape}')
+            # Call your function with the current interval's end_date
+            interval_results = calculate_metrics_for_intervals(df_historic, touchpoints, start_date.strftime('%Y-%m-%d'), current_date_str)
 
-        X_train.to_csv(f"{out_path}/data_train/X_train.csv", index=False)
-        X_test.to_csv(f"{out_path}/data_test/X_test.csv", index=False)
-        X_val.to_csv(f"{out_path}/data_val/X_val.csv", index=False)
+            # Append the results for this interval to the all_intervals_results DataFrame
+            all_intervals_results = pd.concat([all_intervals_results, interval_results])
 
-        for target in labels:
-            y_train[target].to_csv(f"{out_path}/data_train/y_train_{target}.csv", index=False)
-            y_test[target].to_csv(f"{out_path}/data_test/y_test_{target}.csv", index=False)
-            y_val[target].to_csv(f"{out_path}/data_val/y_val_{target}.csv", index=False)
-
-        # Pass on full historic data for prediction.
-        X_pred = df_features[in_features_train]
-        SAGEMAKER_LOGGER.info(f"userlog: feature_processer_historic_predict pre: {str(X_pred.shape)}")
-        X_pred = feature_processer(X_pred)
-        SAGEMAKER_LOGGER.info(f"userlog: feature_processer_historic_predict post: {str(X_pred.shape)}")
-        X_pred.to_csv(f"{out_path}/data_for_historic_prediction.csv", index=False)
+        # Reset the index of the final DataFrame if necessary
+        all_intervals_results.reset_index(drop=True, inplace=True)
+        all_intervals_results['insert_date_ci']= original_end_date
+        
+        SAGEMAKER_LOGGER.info(f"userlog: historic_predict post: {str(all_intervals_results.shape)}")
+        all_intervals_results.to_csv(f"{out_path}/data_for_historic_prediction.csv", index=False)
 
     else:
-        # Read data
-        df_features = pd.read_csv(src_path_incremental)
-        # Pass on incremental data for prediction.
-        X_pred = df_features[in_features_train]
-        SAGEMAKER_LOGGER.info(f"userlog: feature_processer_incremental_predict pre: {str(X_pred.shape)}")
-        X_pred = feature_processer(X_pred)
-        SAGEMAKER_LOGGER.info(f"userlog: feature_processer_incremental_predict post: {str(X_pred.shape)}")
-        X_pred.to_csv(f"{out_path}/data_for_prediction.csv", index=False)
+        # Convert start_date and end_date strings to datetime objects for manipulation
+        start_date = datetime.strptime(STR_INTERVALS_STARTING_DATE, '%Y-%m-%d')
+        original_end_date = execution_date
+
+        # Initialize an empty DataFrame to store the results from each interval
+        all_intervals_results = pd.DataFrame()
+
+        # Loop over the range from (original_end_date - 15 days) to original_end_date
+        for offset in range(0, 16):  # Including the 15th day
+            # Calculate the new end_date for this iteration
+            end_date = original_end_date - timedelta(days=offset)
+
+            # Convert end_date back to string format if your function expects a string
+            end_date_str = end_date.strftime('%Y-%m-%d')
+
+            # Call your function with the current interval's end_date
+            interval_results = calculate_metrics_for_intervals(df_historic, touchpoints, start_date.strftime('%Y-%m-%d'), end_date_str)
+            
+            SAGEMAKER_LOGGER.info(f"userlog: interval_results: {str(interval_results.shape)}")
+
+            # Append the results for this interval to the all_intervals_results DataFrame
+            all_intervals_results = pd.concat([all_intervals_results, interval_results])
+
+        # Reset the index of the final DataFrame if necessary
+        all_intervals_results.reset_index(drop=True, inplace=True)
+        all_intervals_results['insert_date_ci']= original_end_date
+        
+        SAGEMAKER_LOGGER.info(f"userlog: historic_predict post: {str(all_intervals_results.shape)}")
+        all_intervals_results.to_csv(f"{out_path}/data_for_prediction.csv", index=False)
+        
+        

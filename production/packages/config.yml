@@ -1,9 +1,15 @@
 VARIABLES_ETL:
   COLUMNS_TO_SAVE:
     - respondent_id
+    - cabin_in_surveyed_flight
+    - haul
     - date_flight_local
-    - ticket_price
-    - load_factor
+    - pax_business
+    - capacity_business
+    - pax_premium_ec
+    - capacity_premium_ec
+    - pax_economy
+    - capacity_economy
     - otp15_takeoff 
     - bkg_200_journey_preparation
     - pfl_100_checkin
@@ -20,12 +26,11 @@ VARIABLES_ETL:
     - con_100_connections
     - loy_200_loyalty_programme
     - img_310_ease_contact_phone
-  DOUBLE_CAST:
-    - respondent_id
-    - date_fligh_local
-    - ticket_price
-    - load_factor
-    - otp15_takeoff 
+    - nps_100
+    - monthly_weight
+
+VARIABLES_PREPROCESS:
+  TOUCHPOINTS:
     - bkg_200_journey_preparation
     - pfl_100_checkin
     - pfl_200_security
@@ -41,83 +46,109 @@ VARIABLES_ETL:
     - con_100_connections
     - loy_200_loyalty_programme
     - img_310_ease_contact_phone
-  STR_CAST:
-  LABELS: 
-    - promoter_binary
-    - detractor_binary
-  ID: 
-    - respondent_id
-    - date_flight_local
 
-PREPROCESS:
-  PIPELINE_NAME: ticket_price_inputer
-
-TRAIN:
-  MODEL_NAME: 
-    - Promoters
-    - Detractors
-  FEATURES:
-    - ticket_price
+  COLUMNS_TO_SAVE:
+    - start_date
+    - end_date
+    - cabin_in_surveyed_flight
+    - haul
     - load_factor
     - otp15_takeoff 
-    - bkg_200_journey_preparation
-    - pfl_100_checkin
-    - pfl_200_security
-    - pfl_300_lounge
-    - pfl_500_boarding
-    - ifl_300_cabin
-    - ifl_200_flight_crew_annoucements
-    - ifl_600_wifi
-    - ifl_500_ife
-    - ifl_400_food_drink
-    - ifl_100_cabin_crew
-    - arr_100_arrivals
-    - con_100_connections
-    - loy_200_loyalty_programme
-    - img_310_ease_contact_phone 
+    - bkg_200_journey_preparation_satisfaction
+    - pfl_100_checkin_satisfaction
+    - pfl_200_security_satisfaction
+    - pfl_300_lounge_satisfaction
+    - pfl_500_boarding_satisfaction
+    - ifl_300_cabin_satisfaction
+    - ifl_200_flight_crew_annoucements_satisfaction
+    - ifl_600_wifi_satisfaction
+    - ifl_500_ife_satisfaction
+    - ifl_400_food_drink_satisfaction
+    - ifl_100_cabin_crew_satisfaction
+    - arr_100_arrivals_satisfaction
+    - con_100_connections_satisfaction
+    - loy_200_loyalty_programme_satisfaction
+    - img_310_ease_contact_phone_satisfaction
+    - insert_date_ci
 
 PREDICT:
-  COLUMNS_SAVE:
-    - model_version
-    - respondent_id
-    - date_flight_local
-    - ticket_price
+  CABIN_HAULS:
+    - Business_LH_df
+    - Business_SH_df
+    - Economy_LH_df
+    - Economy_SH_df
+    - Premium Economy_LH_df
+  
+  SCALER_NAME:
+    - best_tuned_mae_model_Business_LH_df_LightGBMModel
+    - best_tuned_mae_model_Business_SH_df_LightGBMModel
+    - best_tuned_mae_model_Economy_LH_df_LightGBMModel
+    - best_tuned_mae_model_Economy_SH_df_LightGBMModel
+    - best_tuned_mae_model_Premium Economy_LH_df_LightGBMModel
+  MODEL_NAME: 
+    - future_scaler_Business_LH_df
+    - future_scaler_model_Business_SH_df
+    - future_scaler_model_Economy_LH_df
+    - future_scaler_model_Economy_SH_df
+    - future_scaler_model_Premium Economy_LH_df
+  FEATURES:
     - load_factor
     - otp15_takeoff 
-    - bkg_200_journey_preparation
-    - pfl_100_checkin
-    - pfl_200_security
-    - pfl_300_lounge
-    - pfl_500_boarding
-    - ifl_300_cabin
-    - ifl_200_flight_crew_annoucements
-    - ifl_600_wifi
-    - ifl_500_ife
-    - ifl_400_food_drink
-    - ifl_100_cabin_crew
-    - arr_100_arrivals
-    - con_100_connections
-    - loy_200_loyalty_programme
-    - img_310_ease_contact_phone
-    - ticket_price_nps
+    - bkg_200_journey_preparation_satisfaction
+    - pfl_100_checkin_satisfaction
+    - pfl_200_security_satisfaction
+    - pfl_300_lounge_satisfaction
+    - pfl_500_boarding_satisfaction
+    - ifl_300_cabin_satisfaction
+    - ifl_200_flight_crew_annoucements_satisfaction
+    - ifl_600_wifi_satisfaction
+    - ifl_500_ife_satisfaction
+    - ifl_400_food_drink_satisfaction
+    - ifl_100_cabin_crew_satisfaction
+    - arr_100_arrivals_satisfaction
+    - con_100_connections_satisfaction
+    - loy_200_loyalty_programme_satisfaction
+    - img_310_ease_contact_phone_satisfaction
+  COLUMNS_SAVE:
+    - start_date
+    - end_date
+    - cabin_in_surveyed_flight
+    - haul
+    - load_factor
+    - otp15_takeoff 
+    - bkg_200_journey_preparation_satisfaction
+    - pfl_100_checkin_satisfaction
+    - pfl_200_security_satisfaction
+    - pfl_300_lounge_satisfaction
+    - pfl_500_boarding_satisfaction
+    - ifl_300_cabin_satisfaction
+    - ifl_200_flight_crew_annoucements_satisfaction
+    - ifl_600_wifi_satisfaction
+    - ifl_500_ife_satisfaction
+    - ifl_400_food_drink_satisfaction
+    - ifl_100_cabin_crew_satisfaction
+    - arr_100_arrivals_satisfaction
+    - con_100_connections_satisfaction
+    - loy_200_loyalty_programme_satisfaction
+    - img_310_ease_contact_phone_satisfaction
     - load_factor_nps
     - otp15_takeoff_nps 
-    - bkg_200_journey_preparation_nps
-    - pfl_100_checkin_nps
-    - pfl_200_security_nps
-    - pfl_300_lounge_nps
-    - pfl_500_boarding_nps
-    - ifl_300_cabin_nps
-    - ifl_200_flight_crew_annoucements_nps
-    - ifl_600_wifi_nps
-    - ifl_500_ife_nps
-    - ifl_400_food_drink_nps
-    - ifl_100_cabin_crew_nps
-    - arr_100_arrivals_nps
-    - con_100_connections_nps
-    - loy_200_loyalty_programme_nps
-    - img_310_ease_contact_phone_nps
-    - base_prob_nps
+    - bkg_200_journey_preparation_satisfaction_nps
+    - pfl_100_checkin_satisfaction_nps
+    - pfl_200_security_satisfaction_nps
+    - pfl_300_lounge_satisfaction_nps
+    - pfl_500_boarding_satisfaction_nps
+    - ifl_300_cabin_satisfaction_nps
+    - ifl_200_flight_crew_annoucements_satisfaction_nps
+    - ifl_600_wifi_satisfaction_nps
+    - ifl_500_ife_satisfaction_nps
+    - ifl_400_food_drink_satisfaction_nps
+    - ifl_100_cabin_crew_satisfaction_nps
+    - arr_100_arrivals_satisfaction_nps
+    - con_100_connections_satisfaction_nps
+    - loy_200_loyalty_programme_satisfaction_nps
+    - img_310_ease_contact_phone_satisfaction_nps
+    - out_prob_base
     - out_prob_nps
     - insert_date_ci
     

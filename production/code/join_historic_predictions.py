@@ -81,7 +81,7 @@ if __name__ == "__main__":
     year, month, day = date[:4], date[4:6], date[6:]
 
     # Define the paths for reading data and the trained model
-    read_path = f"{S3_PATH_WRITE}/04_predict_historic_step/{year}{month}{day}"
+    read_path = f"{S3_PATH_WRITE}/03_predict_historic_step/{year}{month}{day}"
 
     # Inicializar una lista vacía para almacenar los DataFrames temporales
     dfs = []
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     df_historic = pd.concat(dfs, ignore_index=True)
     
     # Save the prediction results to S3
-    save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/04_predict_historic_step/{year}{month}{day}/historic_predictions.csv"
+    save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/03_predict_historic_step/{year}{month}{day}/historic_predictions.csv"
     SAGEMAKER_LOGGER.info("userlog: Saving information for joined predictions step in %s.", save_path)
     df_historic.to_csv(save_path, index=False)
     
