@@ -95,10 +95,22 @@ def calculate_weighted_nps(group_df):
         return 0
 
 def calculate_satisfaction(df, variable):
-    """Calcula la tasa de satisfacción para una variable dada."""
-    satisfied_count = df[df[variable] >= 8].shape[0]
-    total_count = df[variable].notnull().sum()
-    return (satisfied_count / total_count) * 100 if total_count != 0 else 0
+    """Calcula la tasa de satisfacción para una variable dada, utilizando pesos mensuales si están disponibles."""
+    # Comprobar si la columna 'monthly_weight' existe y no está completamente vacía para los datos relevantes
+    if 'monthly_weight' in df.columns and not df[df[variable].notnull()]['monthly_weight'].isnull().all():
+        # Suma de los pesos donde la variable es >= 8 y satisface la condición de estar satisfecho
+        satisfied_weight = df[df[variable] >= 8]['monthly_weight'].sum()
+        # Suma de todos los pesos donde la variable no es NaN
+        total_weight = df[df[variable].notnull()]['monthly_weight'].sum()
+        # Calcula el porcentaje de satisfacción usando los pesos
+        return (satisfied_weight / total_weight) * 100 if total_weight != 0 else 0
+    else:
+        # Contar respuestas satisfechas
+        satisfied_count = df[df[variable] >= 8].shape[0]
+        # Contar total de respuestas válidas
+        total_count = df[variable].notnull().sum()
+        # Calcula el porcentaje de satisfacción usando conteo
+        return (satisfied_count / total_count) * 100 if total_count != 0 else 0
 
 def calculate_otp(df, variable='otp15_takeoff'):
     """Calcula el On-Time Performance (OTP) como el porcentaje de valores igual a 1."""
@@ -336,6 +348,8 @@ if __name__ == "__main__":
         all_intervals_results['insert_date_ci']= original_end_date
         
         SAGEMAKER_LOGGER.info(f"userlog: historic_predict post: {str(all_intervals_results.shape)}")
+        SAGEMAKER_LOGGER.info(f"userlog: historic_predict columns: {str(all_intervals_results.columns)}")
+        
         all_intervals_results.to_csv(f"{out_path}/data_for_historic_prediction.csv", index=False)
 
     else:

@@ -234,8 +234,14 @@ if __name__ == "__main__":
     SAGEMAKER_LOGGER.info("userlog: ETL 6.0 Filter out final columns for the model")
 
     df_historic = df_historic[COLUMNS_TO_SAVE]
+    
+    # Condition for dropping rows
+    condition = (df_historic['cabin_in_surveyed_flight'] == 'Premium Economy') & (df_historic['haul'] == 'SH')
 
-    df_historic = df_historic.drop_duplicates()
+    # Keeping rows that do not meet the condition
+    df_historic = df_historic[~condition]
+
+    df_historic = df_historic.drop_duplicates(subset='respondent_id', keep='first')
     
     SAGEMAKER_LOGGER.info("userlog: Size of resulting df_historic:", df_historic.shape)
     

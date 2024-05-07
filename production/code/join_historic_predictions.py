@@ -98,10 +98,36 @@ if __name__ == "__main__":
     # Concatenar todos los DataFrames en la lista en uno solo
     df_historic = pd.concat(dfs, ignore_index=True)
     
+    ## Voy a meter esto aquí a cholon de momento, he calcuado los shaps del target a parte y para subirlos  redshift ha resultado ser un dolor.
+    targets_df = pd.read_csv('s3://iberia-data-lake/customer/nps_aggregated_explainability/prod/targets_pretrained_model/corrected_nps_data.csv')
+    # Added shap targets
+    targets_df=targets_df[targets_df['cabin']!='Global']
+
+    targets_df['insert_date_ci']='2023-11-21'
+
+    targets_df.rename(columns={
+        'cabin' : 'cabin_in_surveyed_flight',
+        'date_flight_local': 'end_date'  # Assuming you want to consider end_date as the equivalent of date_flight_local
+    }, inplace=True)
+    df_historic.rename(columns={
+        'interval_end_date': 'insert_date_ci'  # Assuming you want to consider end_date as the equivalent of date_flight_local
+    }, inplace=True)
+
+    # Correct the conversion to datetime objects
+    targets_df['end_date'] = pd.to_datetime(targets_df['end_date'])
+
+    # Compute 'start_date' as the first day of the corresponding month
+    # Using dt.to_period('M').to_timestamp() to safely navigate datetime formats
+    targets_df['start_date'] = targets_df['end_date'].dt.to_period('M').dt.to_timestamp()
+
+    concatenated_df = pd.concat([df_historic,targets_df], ignore_index=True)
+        
+    SAGEMAKER_LOGGER.info(f"userlog: historic_predict post with targets: {str(concatenated_df.shape)}")
+    
     # Save the prediction results to S3
     save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/03_predict_historic_step/{year}{month}{day}/historic_predictions.csv"
     SAGEMAKER_LOGGER.info("userlog: Saving information for joined predictions step in %s.", save_path)
-    df_historic.to_csv(save_path, index=False)
+    concatented_df.to_csv(save_path, index=False)
     
     
 
