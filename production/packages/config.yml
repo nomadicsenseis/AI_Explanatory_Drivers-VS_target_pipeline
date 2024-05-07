@@ -52,7 +52,6 @@ VARIABLES_PREPROCESS:
     - end_date
     - cabin_in_surveyed_flight
     - haul
-    - NPS_weighted
     - load_factor
     - otp15_takeoff 
     - bkg_200_journey_preparation_satisfaction
@@ -114,7 +113,6 @@ PREDICT:
     - start_date
     - end_date
     - cabin_in_surveyed_flight
-    - NPS_weighted
     - haul
     - load_factor
     - otp15_takeoff 

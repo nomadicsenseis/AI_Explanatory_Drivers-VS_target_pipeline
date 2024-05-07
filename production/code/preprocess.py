@@ -95,22 +95,24 @@ def calculate_weighted_nps(group_df):
         return 0
 
 def calculate_satisfaction(df, variable):
-    """Calcula la tasa de satisfacción para una variable dada, utilizando pesos mensuales si están disponibles."""
-    # Comprobar si la columna 'monthly_weight' existe y no está completamente vacía para los datos relevantes
-    if 'monthly_weight' in df.columns and not df[df[variable].notnull()]['monthly_weight'].isnull().all():
-        # Suma de los pesos donde la variable es >= 8 y satisface la condición de estar satisfecho
-        satisfied_weight = df[df[variable] >= 8]['monthly_weight'].sum()
-        # Suma de todos los pesos donde la variable no es NaN
-        total_weight = df[df[variable].notnull()]['monthly_weight'].sum()
-        # Calcula el porcentaje de satisfacción usando los pesos
-        return (satisfied_weight / total_weight) * 100 if total_weight != 0 else 0
-    else:
-        # Contar respuestas satisfechas
-        satisfied_count = df[df[variable] >= 8].shape[0]
-        # Contar total de respuestas válidas
-        total_count = df[variable].notnull().sum()
-        # Calcula el porcentaje de satisfacción usando conteo
-        return (satisfied_count / total_count) * 100 if total_count != 0 else 0
+    """Calcula la tasa de satisfacción para una variable dada, utilizando pesos mensuales donde están disponibles,
+    y asignando un peso de 1 donde no están disponibles."""
+    
+    # Asegurarse de que todos los valores NaN en 'monthly_weight' se reemplacen con 1
+    df['monthly_weight'].fillna(1, inplace=True)
+    
+    # Filtrar filas donde la variable no es NaN
+    valid_data = df[df[variable].notnull()]
+
+    # Suma de los pesos donde la variable es >= 8 y satisface la condición de estar satisfecho
+    satisfied_weight = valid_data[valid_data[variable] >= 8]['monthly_weight'].sum()
+    
+    # Suma de todos los pesos para las respuestas válidas
+    total_weight = valid_data['monthly_weight'].sum()
+
+    # Calcula el porcentaje de satisfacción usando los pesos
+    return (satisfied_weight / total_weight) * 100 if total_weight != 0 else 0
+
 
 def calculate_otp(df, variable='otp15_takeoff'):
     """Calcula el On-Time Performance (OTP) como el porcentaje de valores igual a 1."""
