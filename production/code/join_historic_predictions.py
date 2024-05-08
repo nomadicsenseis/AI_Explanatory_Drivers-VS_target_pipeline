@@ -109,7 +109,7 @@ if __name__ == "__main__":
     # Save the prediction results to S3
     save_path = f"s3://{S3_BUCKET}/{S3_PATH_WRITE}/03_predict_historic_step/{year}{month}{day}/historic_predictions.csv"
     SAGEMAKER_LOGGER.info("userlog: Saving information for joined predictions step in %s.", save_path)
-    concatented_df.to_csv(save_path, index=False)
+    concatenated_df.to_csv(save_path, index=False)
     
     
 
