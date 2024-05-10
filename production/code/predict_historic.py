@@ -179,6 +179,10 @@ if __name__ == "__main__":
     augmented_dfs = {}
     lgbm_model = {}
     future_scalers = {}
+    future_scaler_key = {}
+    model_key = {}
+    scaler_response = {}
+    model_response = {}
 
     for key in day_predict_df_grouped_dfs.keys():
         # Initialize a list to collect augmented rows
@@ -186,16 +190,16 @@ if __name__ == "__main__":
 
         # Load the pre-trained model and scaler from S3
         path = f"{S3_PATH_WRITE}/targets_pretrained_model"
-        future_scaler_key = f"{path}/future_scaler_{key}.pkl"
-        model_key = f"{path}/best_tuned_mae_model_{key}_LightGBMModel.pkl"
+        future_scaler_key[key] = f"{path}/future_scaler_{key}.pkl"
+        model_key[key] = f"{path}/best_tuned_mae_model_{key}_LightGBMModel.pkl"
 
         # Load scaler
-        scaler_response = s3.get_object(Bucket=S3_BUCKET, Key=future_scaler_key)
-        future_scalers[key] = pickle.loads(scaler_response['Body'].read())
+        scaler_response[key] = s3.get_object(Bucket=S3_BUCKET, Key=future_scaler_key[key])
+        future_scalers[key] = pickle.loads(scaler_response[key]['Body'].read())
 
         # Load model
-        model_response = s3.get_object(Bucket=S3_BUCKET, Key=model_key)
-        lgbm_model[key] = pickle.loads(model_response['Body'].read())
+        model_response[key] = s3.get_object(Bucket=S3_BUCKET, Key=model_key[key])
+        lgbm_model[key] = pickle.loads(model_response[key]['Body'].read())
 
         for index in range(len(day_predict_df_grouped_dfs[key])):
             # Access the row by its index using .iloc

@@ -348,7 +348,7 @@ def get_pipeline(
     #JOIN HISTORIC PREDICTIONS
     join_historic_predictions_step = ProcessingStep(
         name="join_historic_predictions_step",
-        depends_on=[predict_historic_q1_step, predict_historic_q2_step, predict_historic_q3_step, predict_historic_q4_step],  # Depends on the previous step "train_step"
+        depends_on=[predict_historic_q1_step, predict_historic_q2_step, predict_historic_q3_step, predict_historic_q4_step],  
         processor=framework_processor,  # Processor to use for the step
         inputs=join_historic_predictions_step_args.inputs,  # Input data for the step
         outputs=join_historic_predictions_step_args.outputs,  # Output data for the step

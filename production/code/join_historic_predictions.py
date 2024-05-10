@@ -102,7 +102,7 @@ if __name__ == "__main__":
     targets_df = pd.read_csv('s3://iberia-data-lake/customer/nps_aggregated_explainability/prod/targets_pretrained_model/corrected_nps_data.csv')
     
     # Added shap targets
-    concatenated_df = pd.concat([df_historic,targets_df], ignore_index=True)
+    concatenated_df = pd.concat([df_historic,targets_df.drop(columns='NPS_weighted')], ignore_index=True)
         
     SAGEMAKER_LOGGER.info(f"userlog: historic_predict post with targets: {str(concatenated_df.shape)}")
     

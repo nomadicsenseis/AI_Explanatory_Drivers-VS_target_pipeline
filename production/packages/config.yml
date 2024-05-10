@@ -52,8 +52,6 @@ VARIABLES_PREPROCESS:
     - end_date
     - cabin_in_surveyed_flight
     - haul
-    - load_factor
-    - otp15_takeoff 
     - bkg_200_journey_preparation_satisfaction
     - pfl_100_checkin_satisfaction
     - pfl_200_security_satisfaction
@@ -69,6 +67,8 @@ VARIABLES_PREPROCESS:
     - con_100_connections_satisfaction
     - loy_200_loyalty_programme_satisfaction
     - img_310_ease_contact_phone_satisfaction
+    - load_factor
+    - otp15_takeoff 
     - insert_date_ci
 
 PREDICT:
@@ -92,8 +92,6 @@ PREDICT:
     - future_scaler_model_Economy_SH_df
     - future_scaler_model_Premium Economy_LH_df
   FEATURES:
-    - load_factor
-    - otp15_takeoff 
     - bkg_200_journey_preparation_satisfaction
     - pfl_100_checkin_satisfaction
     - pfl_200_security_satisfaction
@@ -109,13 +107,13 @@ PREDICT:
     - con_100_connections_satisfaction
     - loy_200_loyalty_programme_satisfaction
     - img_310_ease_contact_phone_satisfaction
+    - load_factor
+    - otp15_takeoff 
   COLUMNS_SAVE:
     - start_date
     - end_date
     - cabin_in_surveyed_flight
-    - haul
-    - load_factor
-    - otp15_takeoff 
+    - haul 
     - bkg_200_journey_preparation_satisfaction
     - pfl_100_checkin_satisfaction
     - pfl_200_security_satisfaction
@@ -130,9 +128,9 @@ PREDICT:
     - arr_100_arrivals_satisfaction
     - con_100_connections_satisfaction
     - loy_200_loyalty_programme_satisfaction
-    - img_310_ease_contact_phone_satisfaction
-    - load_factor_nps
-    - otp15_takeoff_nps 
+    - img_310_ease_contact_phone_satisfaction 
+    - load_factor
+    - otp15_takeoff
     - bkg_200_journey_preparation_satisfaction_nps
     - pfl_100_checkin_satisfaction_nps
     - pfl_200_security_satisfaction_nps
@@ -147,7 +145,9 @@ PREDICT:
     - arr_100_arrivals_satisfaction_nps
     - con_100_connections_satisfaction_nps
     - loy_200_loyalty_programme_satisfaction_nps
-    - img_310_ease_contact_phone_satisfaction_nps
+    - img_310_ease_contact_phone_satisfaction_nps  
+    - load_factor_nps
+    - otp15_takeoff_nps
     - out_prob_base
     - out_prob_nps
     - insert_date_ci

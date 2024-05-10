@@ -202,7 +202,6 @@ def get_path_to_read_and_date(
 def process_dataframe(df):
     # Agrupar y procesar los datos
     grouped_dfs = {}
-    features = {}
     for group_name, group_data in df.groupby(['cabin_in_surveyed_flight', 'haul']):
         cabin_value, haul_value = group_name
         group_df = group_data.copy()
