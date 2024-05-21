@@ -362,8 +362,8 @@ if __name__ == "__main__":
         # Initialize an empty DataFrame to store the results from each interval
         all_intervals_results = pd.DataFrame()
 
-        # Loop over the range from (original_end_date - 15 days) to original_end_date
-        for offset in range(0, 16):  # Including the 15th day
+        # Loop over the range from (original_end_date - 45 days) to original_end_date
+        for offset in range(0, 46):  # Including the 15th day
             # Calculate the new end_date for this iteration
             end_date = original_end_date - timedelta(days=offset)
 
