@@ -8,4 +8,4 @@ PyYAML==6.0.1
 pandas==1.5.3
 darts==0.29.0 
 shap==0.44.1 
-lightgbm==4.3.0
+lightgbm==3.3.5
