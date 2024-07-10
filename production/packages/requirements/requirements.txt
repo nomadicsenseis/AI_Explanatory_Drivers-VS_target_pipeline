@@ -134,7 +134,7 @@ kiwisolver @ file:///tmp/build/80754af9/kiwisolver_1612282420641/work
 krb5==0.5.1
 lazy-object-proxy @ file:///tmp/build/80754af9/lazy-object-proxy_1616526917483/work
 libarchive-c @ file:///tmp/build/80754af9/python-libarchive-c_1617780486945/work
-lightgbm==4.3.0
+lightgbm==4.3.0 --config-settings=cmake.define.USE_OPENMP=OFF
 llvmlite==0.37.0
 locket==0.2.1
 lxml==4.9.3
