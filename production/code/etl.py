@@ -151,7 +151,8 @@ if __name__ == "__main__":
     df_nps_historic = df_nps_historic.loc[condition_1 & (condition_2 & condition_3)]
 
     # LOAD FACTOR HISTORIC
-    df_lf_historic = df_lf_historic.loc[(df_lf_historic['operating_carrier'].isin(['IB', 'YW']))]
+    # df_lf_historic = df_lf_historic.loc[(df_lf_historic['operating_carrier'].isin(['IB', 'YW']))]
+    # "Operating carrier no longer exists, it has been replaced by op_carrier or op_carrier_ib_group. Still i dont think it is needed in the merge"
 
     # 2. Transform date column to datetime format
     SAGEMAKER_LOGGER.info("userlog: ETL 2.0 Transform date column to datetime format.")
@@ -227,7 +228,7 @@ if __name__ == "__main__":
 
     df_historic = pd.merge(df_nps_historic, df_lf_historic, 
                         how='left', 
-                        on=['date_flight_local', 'surveyed_flight_number', 'cabin_in_surveyed_flight', 'haul', 'operating_airline_code'])
+                        on=['date_flight_local', 'surveyed_flight_number', 'cabin_in_surveyed_flight', 'haul'])
 
 
     # 6. Filter out final columns for the model
