@@ -15,18 +15,42 @@ This approach allows for highly probable NPS estimations for a given set of sati
 
 ## Explainability with Shapley Values
 
-The tool uses Shapley values to explain each prediction for the regressors. The Shapley values output values in the logistic space, so an inv_logistic transformation is applied to convert them into the probabilistic space. Although this is not mathematically exact, it is the standard procedure in the industry.
+The tool uses Shapley values to explain each prediction for the regressors. Since the models are regressors, the shapley values come out as values on the NPS space, which makes them more easy to manage than with classifiers.
 
-For each sample, the difference in base values for all regressors is taken as the "base NPS value," and the difference in Shapley values per variable is associated with an "NPS Shap value." The logic is simple, and since the operations are linear, it can be considered correct.
+## Productionalization
+![VS Target Pipeline](src/VS_target_aggregated_model.png)
 
-To compute the explainability of the NPS for a sample, the NPS base value is taken and each NPS Shap value is averaged separately.
+The end goal of the VS Target pipeline is to provide NPS explanations against the given targets for any preriod of time. The challenge here is to have a productionalizable way of computing every single satisfaction, for any given period of time, so an NPS prediction can be made with the regressors and be compared with the targets prediction. 
+
+![VS Target Preprocess](src/VS_target_preprocess.png)
+
+## Explanation of difference as a difference in explanations.
+
+As with the VS Past pipeline, the main assumption is that the explanation of the difference in NPS between any period of time and the targets is somehow hidden in the difference (not in a mathematical sense) in each of the NPS predictions. For now, the mathematical difference is taken as a proxy to extract this information.
+
+After computing the NPS and its explainability with the above procedure for any period of time and for the targets, the result of subtracting the Shapley values separately is taken as the explanation of why the NPS changed. Notice that because the models remain the same, when the base values of both samples are subtracted, they cancel out.
+
+One thing that is quickly noticeable using this approach is how, due to both the non-linear nature of the model and the uncertainty in the explanations, there are sometimes variables that have a positive change and are known to have a positive impact but are counterintuitively translated into negative Shapley values.
 
 ## Sources of Uncertainty
 
 ![VS Target Sources of Uncertainty](src/VS_target_sources_uncertainty.png)
 
-## Goal
+## Adjustments
+Building a data analysis tool requires careful consideration of the needs and desires of the business teams that will use it. Therefore, addressing and either explaining or adjusting for MAE and flipped values is essential. Various adjustments are proposed to achieve this.
+![VS Past Adjustments Schema](src/VS_past_adjustments.png)
 
-The end goal of the VS Target pipeline is to provide NPS estimations based on aggregated satisfaction variables. This method enables businesses to forecast NPS for various satisfaction levels without needing detailed client-level data, allowing for strategic planning and insights. 
+There are three adjustments:
 
+### 1) Flipped Shaps Adjustment
+This adjustment involves setting the Shapley value to 0 if there is a flipped value and then distributing the missed contribution among the Shapley values with the same sign.
+![VS Past Flipped Shaps Adjustment](src/flipped_shaps.png)
+
+### 2.0) MAE Adjustment: Direct
+This is a basic normalization that aligns the predictions with the actual NPS value by normalizing the Shapley values.
+![VS Past MAE Adjustment: Direct](src/VS_past_direct_adjust.png)
+
+### 2.1) MAE Adjustment: Indirect
+When there is a flip in the sign of the difference between predictions and actual values, this extreme adjustment is implemented. It shrinks the values of the proper sign and stretches the values of the opposite sign.
+![VS Past MAE Adjustment: Indirect](src/VS_past_indirect_adjust.png)
 
